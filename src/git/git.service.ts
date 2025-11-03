@@ -1,5 +1,6 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { LoggingClient } from '@code-crew-ai/server';
 import simpleGit, { SimpleGit, SimpleGitOptions } from 'simple-git';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -7,11 +8,12 @@ import { Repository, WorkspaceSetup, CommitInfo } from './interfaces/git.interfa
 
 @Injectable()
 export class GitService {
-  private readonly logger = new Logger(GitService.name);
+  private readonly logger: LoggingClient;
   private readonly baseReposPath: string;
   private readonly worktreesPath: string;
 
   constructor(private configService: ConfigService) {
+    this.logger = new LoggingClient('GitService');
     this.baseReposPath = this.configService.get<string>('git.baseReposPath');
     this.worktreesPath = this.configService.get<string>('git.worktreesPath');
   }
