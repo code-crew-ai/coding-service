@@ -1,6 +1,6 @@
-import { IsString, IsArray, IsOptional, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
-import { RepositoryDto } from './repository.dto';
+import { IsString, IsArray, IsOptional, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
+import { RepositoryDto } from "./repository.dto";
 
 export class CodingTaskDto {
   @IsString()

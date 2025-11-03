@@ -1,7 +1,10 @@
-import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { LoggingClient, WINSTON_MODULE_NEST_PROVIDER } from '@code-crew-ai/server';
-import * as jwt from 'jsonwebtoken';
+import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+  LoggingClient,
+  WINSTON_MODULE_NEST_PROVIDER,
+} from "@code-crew-ai/server";
+import * as jwt from "jsonwebtoken";
 
 export interface JwtPayload {
   taskId: string;
@@ -29,10 +32,10 @@ export class JwtVerifierService {
     orgId: string,
     userId: string,
   ): void {
-    const secret = this.configService.get<string>('auth.jwtSecret');
+    const secret = this.configService.get<string>("auth.jwtSecret");
 
     if (!secret) {
-      throw new UnauthorizedException('JWT secret not configured');
+      throw new UnauthorizedException("JWT secret not configured");
     }
 
     try {
@@ -40,37 +43,33 @@ export class JwtVerifierService {
 
       // Validate claims match task context
       if (decoded.taskId !== taskId) {
-        throw new UnauthorizedException('JWT taskId mismatch');
+        throw new UnauthorizedException("JWT taskId mismatch");
       }
       if (decoded.orgId !== orgId) {
-        throw new UnauthorizedException('JWT orgId mismatch');
+        throw new UnauthorizedException("JWT orgId mismatch");
       }
       if (decoded.userId !== userId) {
-        throw new UnauthorizedException('JWT userId mismatch');
+        throw new UnauthorizedException("JWT userId mismatch");
       }
 
       this.logger.debug(`JWT verified for task ${taskId}`);
     } catch (error) {
       this.logger.error(`JWT verification failed: ${error.message}`);
-      throw new UnauthorizedException('Invalid JWT token');
+      throw new UnauthorizedException("Invalid JWT token");
     }
   }
 
   /**
    * Generate internal JWT for service-to-service calls
    */
-  generateInternalToken(
-    taskId: string,
-    orgId: string,
-    userId: string,
-  ): string {
-    const secret = this.configService.get<string>('auth.jwtSecret');
+  generateInternalToken(taskId: string, orgId: string, userId: string): string {
+    const secret = this.configService.get<string>("auth.jwtSecret");
 
     if (!secret) {
-      throw new Error('JWT secret not configured');
+      throw new Error("JWT secret not configured");
     }
 
     const payload: JwtPayload = { taskId, orgId, userId };
-    return jwt.sign(payload, secret, { expiresIn: '1h' });
+    return jwt.sign(payload, secret, { expiresIn: "1h" });
   }
 }

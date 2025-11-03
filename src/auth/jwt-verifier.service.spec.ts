@@ -1,13 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
-import { JwtVerifierService } from './jwt-verifier.service';
-import * as jwt from 'jsonwebtoken';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
+import { UnauthorizedException } from "@nestjs/common";
+import { JwtVerifierService } from "./jwt-verifier.service";
+import * as jwt from "jsonwebtoken";
 
-describe('JwtVerifierService', () => {
+describe("JwtVerifierService", () => {
   let service: JwtVerifierService;
   let configService: ConfigService;
-  const testSecret = 'test-secret-key';
+  const testSecret = "test-secret-key";
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -26,15 +26,15 @@ describe('JwtVerifierService', () => {
     configService = module.get<ConfigService>(ConfigService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('verifyTaskToken', () => {
-    it('should successfully verify a valid token', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+  describe("verifyTaskToken", () => {
+    it("should successfully verify a valid token", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
       const token = jwt.sign({ taskId, orgId, userId }, testSecret);
 
@@ -43,65 +43,65 @@ describe('JwtVerifierService', () => {
       }).not.toThrow();
     });
 
-    it('should throw UnauthorizedException for invalid signature', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+    it("should throw UnauthorizedException for invalid signature", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
-      const token = jwt.sign({ taskId, orgId, userId }, 'wrong-secret');
+      const token = jwt.sign({ taskId, orgId, userId }, "wrong-secret");
 
       expect(() => {
         service.verifyTaskToken(token, taskId, orgId, userId);
       }).toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException for taskId mismatch', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+    it("should throw UnauthorizedException for taskId mismatch", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
       const token = jwt.sign({ taskId, orgId, userId }, testSecret);
 
       expect(() => {
-        service.verifyTaskToken(token, 'different-task', orgId, userId);
+        service.verifyTaskToken(token, "different-task", orgId, userId);
       }).toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException for orgId mismatch', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+    it("should throw UnauthorizedException for orgId mismatch", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
       const token = jwt.sign({ taskId, orgId, userId }, testSecret);
 
       expect(() => {
-        service.verifyTaskToken(token, taskId, 'different-org', userId);
+        service.verifyTaskToken(token, taskId, "different-org", userId);
       }).toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException for userId mismatch', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+    it("should throw UnauthorizedException for userId mismatch", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
       const token = jwt.sign({ taskId, orgId, userId }, testSecret);
 
       expect(() => {
-        service.verifyTaskToken(token, taskId, orgId, 'different-user');
+        service.verifyTaskToken(token, taskId, orgId, "different-user");
       }).toThrow(UnauthorizedException);
     });
   });
 
-  describe('generateInternalToken', () => {
-    it('should generate a valid JWT token', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+  describe("generateInternalToken", () => {
+    it("should generate a valid JWT token", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
       const token = service.generateInternalToken(taskId, orgId, userId);
 
       expect(token).toBeDefined();
-      expect(typeof token).toBe('string');
+      expect(typeof token).toBe("string");
 
       // Verify the token can be decoded
       const decoded = jwt.verify(token, testSecret) as any;
@@ -110,10 +110,10 @@ describe('JwtVerifierService', () => {
       expect(decoded.userId).toBe(userId);
     });
 
-    it('should include expiration in generated token', () => {
-      const taskId = 'task-123';
-      const orgId = 'org-456';
-      const userId = 'user-789';
+    it("should include expiration in generated token", () => {
+      const taskId = "task-123";
+      const orgId = "org-456";
+      const userId = "user-789";
 
       const token = service.generateInternalToken(taskId, orgId, userId);
       const decoded = jwt.verify(token, testSecret) as any;
