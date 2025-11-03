@@ -1,5 +1,6 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { LoggingClient } from '@code-crew-ai/server';
 import * as jwt from 'jsonwebtoken';
 
 export interface JwtPayload {
@@ -12,9 +13,11 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtVerifierService {
-  private readonly logger = new Logger(JwtVerifierService.name);
+  private readonly logger: LoggingClient;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    this.logger = new LoggingClient('JwtVerifierService');
+  }
 
   /**
    * Verify JWT signature and claims
