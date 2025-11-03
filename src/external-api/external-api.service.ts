@@ -1,19 +1,17 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { LoggingClient } from '@code-crew-ai/server';
+import { LoggingClient, WINSTON_MODULE_NEST_PROVIDER } from '@code-crew-ai/server';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class ExternalApiService {
-  private readonly logger: LoggingClient;
-
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggingClient,
     private configService: ConfigService,
     private httpService: HttpService,
-  ) {
-    this.logger = new LoggingClient('ExternalApiService');
-  }
+  ) {}
 
   /**
    * Get GitHub App installation token for repositories

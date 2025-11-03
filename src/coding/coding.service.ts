@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LoggingClient } from '@code-crew-ai/server';
+import { LoggingClient, WINSTON_MODULE_NEST_PROVIDER } from '@code-crew-ai/server';
 import { JwtVerifierService } from '../auth/jwt-verifier.service';
 import { ExternalApiService } from '../external-api/external-api.service';
 import { GitService } from '../git/git.service';
@@ -24,17 +24,15 @@ import { CodingResultDto } from './dto/coding-result.dto';
  */
 @Injectable()
 export class CodingService {
-  private readonly logger: LoggingClient;
-
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggingClient,
     private jwtVerifier: JwtVerifierService,
     private externalApi: ExternalApiService,
     private gitService: GitService,
     private executor: ExecutorService,
     private configService: ConfigService,
-  ) {
-    this.logger = new LoggingClient('CodingService');
-  }
+  ) {}
 
   async executeTask(task: CodingTaskDto): Promise<CodingResultDto> {
     const { taskId, orgId, userId, repositories, prompt, jwt } = task;
