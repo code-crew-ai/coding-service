@@ -1,9 +1,12 @@
-import { Controller } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
-import { LoggingClient } from '@code-crew-ai/server';
-import { CodingService } from './coding.service';
-import { CodingTaskDto } from './dto/coding-task.dto';
-import { CodingResultDto } from './dto/coding-result.dto';
+import { Controller, Inject } from "@nestjs/common";
+import { EventPattern, Payload } from "@nestjs/microservices";
+import {
+  LoggingClient,
+  WINSTON_MODULE_NEST_PROVIDER,
+} from "@code-crew-ai/server";
+import { CodingService } from "./coding.service";
+import { CodingTaskDto } from "./dto/coding-task.dto";
+import { CodingResultDto } from "./dto/coding-result.dto";
 
 /**
  * Controller for handling coding task messages from Redis
@@ -13,11 +16,11 @@ import { CodingResultDto } from './dto/coding-result.dto';
  */
 @Controller()
 export class CodingController {
-  private readonly logger: LoggingClient;
-
-  constructor(private codingService: CodingService) {
-    this.logger = new LoggingClient('CodingController');
-  }
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggingClient,
+    private codingService: CodingService,
+  ) {}
 
   /**
    * Handle incoming coding tasks from Redis queue
@@ -25,7 +28,7 @@ export class CodingController {
    * Pattern: 'coding-tasks'
    * Returns: CodingResultDto (automatically sent back via NestJS microservices)
    */
-  @EventPattern('coding-tasks')
+  @EventPattern("coding-tasks")
   async handleCodingTask(
     @Payload() data: CodingTaskDto,
   ): Promise<CodingResultDto> {

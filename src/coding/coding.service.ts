@@ -1,12 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { LoggingClient } from '@code-crew-ai/server';
-import { JwtVerifierService } from '../auth/jwt-verifier.service';
-import { ExternalApiService } from '../external-api/external-api.service';
-import { GitService } from '../git/git.service';
-import { ExecutorService } from './executor.service';
-import { CodingTaskDto } from './dto/coding-task.dto';
-import { CodingResultDto } from './dto/coding-result.dto';
+import { Injectable, Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+  LoggingClient,
+  WINSTON_MODULE_NEST_PROVIDER,
+} from "@code-crew-ai/server";
+import { JwtVerifierService } from "../auth/jwt-verifier.service";
+import { ExternalApiService } from "../external-api/external-api.service";
+import { GitService } from "../git/git.service";
+import { ExecutorService } from "./executor.service";
+import { CodingTaskDto } from "./dto/coding-task.dto";
+import { CodingResultDto } from "./dto/coding-result.dto";
 
 /**
  * Service for orchestrating coding task execution
@@ -24,17 +27,15 @@ import { CodingResultDto } from './dto/coding-result.dto';
  */
 @Injectable()
 export class CodingService {
-  private readonly logger: LoggingClient;
-
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggingClient,
     private jwtVerifier: JwtVerifierService,
     private externalApi: ExternalApiService,
     private gitService: GitService,
     private executor: ExecutorService,
     private configService: ConfigService,
-  ) {
-    this.logger = new LoggingClient('CodingService');
-  }
+  ) {}
 
   async executeTask(task: CodingTaskDto): Promise<CodingResultDto> {
     const { taskId, orgId, userId, repositories, prompt, jwt } = task;
@@ -73,14 +74,16 @@ export class CodingService {
 
       // 5. Execute Claude Code
       this.logger.log(`Executing Claude Code for task ${taskId}`);
-      const model = task.model || this.configService.get('coding.model', 'claude-sonnet-4-5-20250929');
+      const model =
+        task.model ||
+        this.configService.get("coding.model", "claude-sonnet-4-5-20250929");
       const executionResult = await this.executor.execute(
         taskId,
         orgId,
         workspace.workspacePath,
         workspace.repositories,
         prompt,
-        task.systemPrompt || '',
+        task.systemPrompt || "",
         task.files || [],
         model,
       );
@@ -101,15 +104,15 @@ export class CodingService {
         return {
           taskId,
           success: false,
-          error: 'No changes were made',
+          error: "No changes were made",
         };
       }
 
       // 7. Process each modified repository
       const prUrls: string[] = [];
       const allFilesChanged: string[] = [];
-      let commitMessage = '';
-      let commitSha = '';
+      let commitMessage = "";
+      let commitSha = "";
 
       for (const repoName of modifiedRepos) {
         const repoPath = workspace.repositories.get(repoName);
@@ -120,9 +123,8 @@ export class CodingService {
           repoPath,
           repo.branch,
         );
-        const hasUncommitted = await this.gitService.hasUncommittedChanges(
-          repoPath,
-        );
+        const hasUncommitted =
+          await this.gitService.hasUncommittedChanges(repoPath);
 
         // Create commit if Claude didn't
         if (!hasCommits && hasUncommitted) {
@@ -153,9 +155,7 @@ export class CodingService {
         const prUrl = await this.gitService.createPullRequest(
           repoPath,
           task.prTitle || `Task ${taskId}`,
-          task.agentName
-            ? `Automated changes by ${task.agentName}`
-            : '',
+          task.agentName ? `Automated changes by ${task.agentName}` : "",
         );
         prUrls.push(prUrl);
       }
@@ -174,10 +174,7 @@ export class CodingService {
         prUrls,
       };
     } catch (error) {
-      this.logger.error(
-        `Task ${taskId} failed: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Task ${taskId} failed: ${error.message}`, error.stack);
 
       // Cleanup on error
       try {

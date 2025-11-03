@@ -1,21 +1,35 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { LoggingClient } from '@code-crew-ai/server';
-import simpleGit, { SimpleGit, SimpleGitOptions } from 'simple-git';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { Repository, WorkspaceSetup, CommitInfo } from './interfaces/git.interface';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Inject,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+  LoggingClient,
+  WINSTON_MODULE_NEST_PROVIDER,
+} from "@code-crew-ai/server";
+import simpleGit from "simple-git";
+import { execSync } from "child_process";
+import * as fs from "fs/promises";
+import * as path from "path";
+import {
+  Repository,
+  WorkspaceSetup,
+  CommitInfo,
+} from "./interfaces/git.interface";
 
 @Injectable()
 export class GitService {
-  private readonly logger: LoggingClient;
   private readonly baseReposPath: string;
   private readonly worktreesPath: string;
 
-  constructor(private configService: ConfigService) {
-    this.logger = new LoggingClient('GitService');
-    this.baseReposPath = this.configService.get<string>('git.baseReposPath');
-    this.worktreesPath = this.configService.get<string>('git.worktreesPath');
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggingClient,
+    private configService: ConfigService,
+  ) {
+    this.baseReposPath = this.configService.get<string>("git.baseReposPath");
+    this.worktreesPath = this.configService.get<string>("git.worktreesPath");
   }
 
   /**
@@ -41,10 +55,19 @@ export class GitService {
       repoMap.set(repo.name, repoPath);
 
       // Ensure base repo is cached
-      const baseRepoPath = await this.ensureBaseRepo(repo.owner, repo.name, token);
+      const baseRepoPath = await this.ensureBaseRepo(
+        repo.owner,
+        repo.name,
+        token,
+      );
 
       // Create worktree for this repo
-      await this.createWorktree(baseRepoPath, repoPath, `task/${taskId}`, repo.branch);
+      await this.createWorktree(
+        baseRepoPath,
+        repoPath,
+        `task/${taskId}`,
+        repo.branch,
+      );
 
       // Configure git identity
       await this.configureGitIdentity(repoPath);
@@ -59,7 +82,11 @@ export class GitService {
   /**
    * Ensure base repository is cached and up-to-date
    */
-  async ensureBaseRepo(owner: string, repo: string, token: string): Promise<string> {
+  async ensureBaseRepo(
+    owner: string,
+    repo: string,
+    token: string,
+  ): Promise<string> {
     const repoPath = path.join(this.baseReposPath, owner, repo);
 
     try {
@@ -69,7 +96,7 @@ export class GitService {
       this.logger.debug(`Base repo exists at ${repoPath}, fetching latest`);
 
       const git = simpleGit(repoPath);
-      await git.fetch(['--all', '--prune']);
+      await git.fetch(["--all", "--prune"]);
 
       return repoPath;
     } catch (error) {
@@ -81,7 +108,7 @@ export class GitService {
       const repoUrl = `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
       const git = simpleGit();
 
-      await git.clone(repoUrl, repoPath, ['--bare']);
+      await git.clone(repoUrl, repoPath, ["--bare"]);
 
       return repoPath;
     }
@@ -96,18 +123,27 @@ export class GitService {
     branchName: string,
     baseBranch: string,
   ): Promise<void> {
-    this.logger.debug(`Creating worktree at ${workspacePath} from branch ${baseBranch}`);
+    this.logger.debug(
+      `Creating worktree at ${workspacePath} from branch ${baseBranch}`,
+    );
 
     const git = simpleGit(baseRepoPath);
 
     try {
       // Create worktree with new branch
-      await git.raw(['worktree', 'add', '-b', branchName, workspacePath, `origin/${baseBranch}`]);
+      await git.raw([
+        "worktree",
+        "add",
+        "-b",
+        branchName,
+        workspacePath,
+        `origin/${baseBranch}`,
+      ]);
 
       this.logger.debug(`Worktree created successfully`);
     } catch (error) {
       this.logger.error(`Failed to create worktree: ${error.message}`);
-      throw new InternalServerErrorException('Failed to create git worktree');
+      throw new InternalServerErrorException("Failed to create git worktree");
     }
   }
 
@@ -117,8 +153,8 @@ export class GitService {
   async configureGitIdentity(workspacePath: string): Promise<void> {
     const git = simpleGit(workspacePath);
 
-    await git.addConfig('user.name', 'Code Crew AI', false);
-    await git.addConfig('user.email', 'bot@codecrew.ai', false);
+    await git.addConfig("user.name", "Code Crew AI", false);
+    await git.addConfig("user.email", "bot@codecrew.ai", false);
 
     this.logger.debug(`Configured git identity for ${workspacePath}`);
   }
@@ -140,8 +176,10 @@ export class GitService {
     const git = simpleGit(repoPath);
 
     try {
-      const currentBranch = await git.revparse(['--abbrev-ref', 'HEAD']);
-      const log = await git.log([`origin/${baseBranch}..${currentBranch.trim()}`]);
+      const currentBranch = await git.revparse(["--abbrev-ref", "HEAD"]);
+      const log = await git.log([
+        `origin/${baseBranch}..${currentBranch.trim()}`,
+      ]);
 
       return log.total > 0;
     } catch (error) {
@@ -157,7 +195,7 @@ export class GitService {
     const git = simpleGit(repoPath);
 
     // Stage all changes
-    await git.add('.');
+    await git.add(".");
 
     // Get list of files that will be committed
     const status = await git.status();
@@ -182,27 +220,31 @@ export class GitService {
   /**
    * Push branch to remote
    */
-  async pushBranch(repoPath: string, branchName: string, token: string): Promise<void> {
+  async pushBranch(
+    repoPath: string,
+    branchName: string,
+    token: string,
+  ): Promise<void> {
     const git = simpleGit(repoPath);
 
     // Get remote URL and update with token
     const remotes = await git.getRemotes(true);
-    const origin = remotes.find(r => r.name === 'origin');
+    const origin = remotes.find((r) => r.name === "origin");
 
     if (!origin) {
-      throw new InternalServerErrorException('No origin remote found');
+      throw new InternalServerErrorException("No origin remote found");
     }
 
     // Update remote URL with token
     const urlWithToken = origin.refs.push.replace(
-      'https://github.com',
+      "https://github.com",
       `https://x-access-token:${token}@github.com`,
     );
 
-    await git.remote(['set-url', 'origin', urlWithToken]);
+    await git.remote(["set-url", "origin", urlWithToken]);
 
     // Push branch
-    await git.push('origin', branchName, ['--set-upstream']);
+    await git.push("origin", branchName, ["--set-upstream"]);
 
     this.logger.log(`Pushed branch ${branchName} to origin`);
   }
@@ -210,11 +252,14 @@ export class GitService {
   /**
    * Check if remote branch exists
    */
-  async remoteBranchExists(repoPath: string, branchName: string): Promise<boolean> {
+  async remoteBranchExists(
+    repoPath: string,
+    branchName: string,
+  ): Promise<boolean> {
     const git = simpleGit(repoPath);
 
     try {
-      const branches = await git.branch(['-r']);
+      const branches = await git.branch(["-r"]);
       return branches.all.includes(`origin/${branchName}`);
     } catch (error) {
       this.logger.error(`Error checking remote branch: ${error.message}`);
@@ -230,8 +275,6 @@ export class GitService {
     title: string,
     body: string,
   ): Promise<string> {
-    const { execSync } = require('child_process');
-
     try {
       this.logger.log(`Creating pull request: ${title}`);
 
@@ -239,7 +282,7 @@ export class GitService {
         `gh pr create --title "${title}" --body "${body}"`,
         {
           cwd: repoPath,
-          encoding: 'utf-8',
+          encoding: "utf-8",
         },
       );
 
@@ -249,7 +292,7 @@ export class GitService {
       return prUrl;
     } catch (error) {
       this.logger.error(`Failed to create pull request: ${error.message}`);
-      throw new InternalServerErrorException('Failed to create pull request');
+      throw new InternalServerErrorException("Failed to create pull request");
     }
   }
 
