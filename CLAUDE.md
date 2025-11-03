@@ -6,6 +6,8 @@ AI-powered code generation microservice using Claude Agent SDK.
 
 This is a NestJS microservice that replaces the Python-based aider-service. It uses the Node.js Claude Agent SDK to execute Claude Code in isolated git worktrees.
 
+**Communication Pattern:** NestJS request/response (Pattern 1) - same as agents. Uses Redis transport with automatic response handling via NestJS microservices.
+
 ### Key Components
 
 **ConfigModule:**
@@ -24,7 +26,7 @@ This is a NestJS microservice that replaces the Python-based aider-service. It u
 - Worktree operations (create, cleanup)
 - Git identity configuration
 - Commit, push, and branch operations
-- PR creation via GitHub CLI or REST API
+- PR creation via GitHub CLI
 - Modified repository detection
 
 **ExternalApiModule:**
@@ -33,10 +35,9 @@ This is a NestJS microservice that replaces the Python-based aider-service. It u
 - HTTP client configuration with retry logic
 
 **CodingModule:**
-- Redis microservice controller (message handler)
-- Task orchestration and workflow
-- Agent SDK execution wrapper
-- Result publishing
+- **CodingController**: Redis microservice controller listening on `coding-tasks`
+- **CodingService**: Orchestrates 9-step workflow (JWT verification → GitHub token → workspace setup → execution → PR creation)
+- **ExecutorService**: Agent SDK execution wrapper with system prompt augmentation
 - Error handling and logging
 
 **HealthModule:**
@@ -44,13 +45,36 @@ This is a NestJS microservice that replaces the Python-based aider-service. It u
 - Redis connectivity check
 - Service status reporting
 
-## Redis Channels
+## Workflow
 
-**Input:** `coding-tasks`
-- Receives task requests from agents
+### Request/Response Pattern
 
-**Output:** `coding-results:{taskId}`
-- Publishes task results back to requesting agent
+Agents send tasks using NestJS `ClientProxy.send()`:
+
+```typescript
+// Agent sends request
+const result = await client.send<CodingResult>('coding-tasks', taskData);
+
+// Coding-service controller handles and returns result
+@EventPattern('coding-tasks')
+async handleCodingTask(data: CodingTaskDto): Promise<CodingResultDto> {
+  return await this.codingService.executeTask(data);
+}
+```
+
+NestJS automatically handles the response via Redis transport.
+
+### Orchestration Workflow (CodingService)
+
+1. **JWT Verification** - Validate task authentication
+2. **GitHub Token Retrieval** - Get installation token from external-services-api
+3. **Workspace Setup** - Multi-repo workspace with git worktrees
+4. **Branch Creation** - Create `task/{taskId}` branches
+5. **Claude Code Execution** - Execute via Agent SDK with augmented system prompt
+6. **Modified Repo Detection** - Identify repositories with changes
+7. **Commit/Push/PR** - Process each modified repo (fallback commit if needed)
+8. **Cleanup** - Remove workspace directory
+9. **Result Return** - Structured result with PR URLs
 
 ## Development
 

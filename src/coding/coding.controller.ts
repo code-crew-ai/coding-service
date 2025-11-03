@@ -1,20 +1,21 @@
 import { Controller } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { LoggingClient } from '@code-crew-ai/server';
-import { CodingHandler } from './coding.handler';
+import { CodingService } from './coding.service';
 import { CodingTaskDto } from './dto/coding-task.dto';
 import { CodingResultDto } from './dto/coding-result.dto';
 
 /**
  * Controller for handling coding task messages from Redis
  *
- * Listens to the 'coding-tasks' event pattern and delegates to CodingHandler.
+ * Uses NestJS request/response pattern - just returns the result.
+ * NestJS automatically sends the response back via Redis transport.
  */
 @Controller()
 export class CodingController {
   private readonly logger: LoggingClient;
 
-  constructor(private readonly handler: CodingHandler) {
+  constructor(private codingService: CodingService) {
     this.logger = new LoggingClient('CodingController');
   }
 
@@ -22,28 +23,40 @@ export class CodingController {
    * Handle incoming coding tasks from Redis queue
    *
    * Pattern: 'coding-tasks'
-   * Payload: CodingTaskDto object
+   * Returns: CodingResultDto (automatically sent back via NestJS microservices)
    */
   @EventPattern('coding-tasks')
   async handleCodingTask(
     @Payload() data: CodingTaskDto,
   ): Promise<CodingResultDto> {
+    const startTime = Date.now();
+
     this.logger.log(`Received coding task: ${data.taskId}`);
 
     try {
-      const result = await this.handler.handleTask(data);
-      this.logger.log(`Completed coding task: ${data.taskId}`);
+      // Execute task
+      const result = await this.codingService.executeTask(data);
+
+      // Calculate execution time
+      result.executionTime = Date.now() - startTime;
+
+      this.logger.log(
+        `Task ${data.taskId} completed in ${result.executionTime}ms`,
+      );
+
       return result;
     } catch (error) {
-      this.logger.error(
-        `Error processing coding task ${data.taskId}: ${error.message}`,
-        error.stack,
-      );
-      return {
+      // Return error result
+      const errorResult: CodingResultDto = {
         taskId: data.taskId,
         success: false,
         error: error.message,
+        executionTime: Date.now() - startTime,
       };
+
+      this.logger.error(`Task ${data.taskId} failed: ${error.message}`);
+
+      return errorResult;
     }
   }
 }

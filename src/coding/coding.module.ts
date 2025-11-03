@@ -3,12 +3,13 @@ import { AuthModule } from '../auth/auth.module';
 import { GitModule } from '../git/git.module';
 import { ExternalApiModule } from '../external-api/external-api.module';
 import { CodingController } from './coding.controller';
-import { CodingHandler } from './coding.handler';
+import { CodingService } from './coding.service';
+import { ExecutorService } from './executor.service';
 
 @Module({
   imports: [AuthModule, GitModule, ExternalApiModule],
   controllers: [CodingController],
-  providers: [CodingHandler],
-  exports: [CodingHandler],
+  providers: [CodingService, ExecutorService],
+  exports: [CodingService],
 })
 export class CodingModule {}
