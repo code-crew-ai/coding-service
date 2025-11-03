@@ -1,20 +1,24 @@
-import { Controller } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Controller, Inject } from '@nestjs/common';
+import { EventPattern, Payload, Ctx, RedisContext } from '@nestjs/microservices';
 import { LoggingClient } from '@code-crew-ai/server';
-import { CodingHandler } from './coding.handler';
+import Redis from 'ioredis';
+import { CodingService } from './coding.service';
 import { CodingTaskDto } from './dto/coding-task.dto';
 import { CodingResultDto } from './dto/coding-result.dto';
 
 /**
  * Controller for handling coding task messages from Redis
  *
- * Listens to the 'coding-tasks' event pattern and delegates to CodingHandler.
+ * Listens to 'coding-tasks' channel and publishes results to 'coding-results:{taskId}'
  */
 @Controller()
 export class CodingController {
   private readonly logger: LoggingClient;
 
-  constructor(private readonly handler: CodingHandler) {
+  constructor(
+    private codingService: CodingService,
+    @Inject('REDIS_CLIENT') private redisClient: Redis,
+  ) {
     this.logger = new LoggingClient('CodingController');
   }
 
@@ -22,28 +26,48 @@ export class CodingController {
    * Handle incoming coding tasks from Redis queue
    *
    * Pattern: 'coding-tasks'
-   * Payload: CodingTaskDto object
+   * Publishes result to: 'coding-results:{taskId}'
    */
   @EventPattern('coding-tasks')
   async handleCodingTask(
     @Payload() data: CodingTaskDto,
-  ): Promise<CodingResultDto> {
+    @Ctx() context: RedisContext,
+  ): Promise<void> {
+    const startTime = Date.now();
+
     this.logger.log(`Received coding task: ${data.taskId}`);
 
     try {
-      const result = await this.handler.handleTask(data);
-      this.logger.log(`Completed coding task: ${data.taskId}`);
-      return result;
-    } catch (error) {
-      this.logger.error(
-        `Error processing coding task ${data.taskId}: ${error.message}`,
-        error.stack,
+      // Execute task
+      const result = await this.codingService.executeTask(data);
+
+      // Calculate execution time
+      result.executionTime = Date.now() - startTime;
+
+      // Publish result to task-specific channel
+      await this.redisClient.publish(
+        `coding-results:${data.taskId}`,
+        JSON.stringify(result),
       );
-      return {
+
+      this.logger.log(
+        `Task ${data.taskId} completed in ${result.executionTime}ms`,
+      );
+    } catch (error) {
+      // Always return a result, even on error
+      const errorResult: CodingResultDto = {
         taskId: data.taskId,
         success: false,
         error: error.message,
+        executionTime: Date.now() - startTime,
       };
+
+      await this.redisClient.publish(
+        `coding-results:${data.taskId}`,
+        JSON.stringify(errorResult),
+      );
+
+      this.logger.error(`Task ${data.taskId} failed: ${error.message}`);
     }
   }
 }
