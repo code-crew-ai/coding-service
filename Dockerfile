@@ -13,8 +13,12 @@ RUN npm install -g @anthropic-ai/claude-code
 # Create app directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files and .npmrc
+COPY package*.json .npmrc ./
+
+# Accept build arg for GitHub token
+ARG GITHUB_TOKEN
+ENV GITHUB_TOKEN=$GITHUB_TOKEN
 
 # Install dependencies
 RUN npm ci --only=production
