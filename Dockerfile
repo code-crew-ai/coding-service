@@ -17,12 +17,5 @@ WORKDIR /app
 RUN mkdir -p /tmp/base-repos /tmp/worktrees && \
     chmod -R 777 /tmp/base-repos /tmp/worktrees
 
-# Expose health check port
-EXPOSE 3010
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3010/health || exit 1
-
 # Note: Dependencies and built files are mounted from host via docker-compose volumes
 CMD ["npm", "run", "start:dev"]
